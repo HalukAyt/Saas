@@ -13,7 +13,7 @@ import { useTheme } from "../utils/ThemeContext";
 import { getHabits, completeHabit } from "../api/habit";
 import { getXPLogs } from "../api/xp";
 import { router } from "expo-router";
-import XPBar from "../utils/XpBar"; // varsa
+import XPBar from "../utils/XpBar";
 import { useFocusEffect } from "@react-navigation/native";
 
 export default function DashboardScreen() {
@@ -25,12 +25,11 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   interface XPLog {
-  id: string;
-  xpChange: number;
-  description: string;
-  source: string;
-}
-  
+    id: string;
+    xpChange: number;
+    description: string;
+    source: string;
+  }
 
   const loadHabits = useCallback(async () => {
     try {
@@ -39,7 +38,10 @@ export default function DashboardScreen() {
       console.log("Habits response:", data);
       setHabits(data);
       const xpLogs = await getXPLogs();
-      const totalXp = xpLogs.reduce((acc: number, x: XPLog) => acc + x.xpChange, 0);
+      const totalXp = xpLogs.reduce(
+        (acc: number, x: XPLog) => acc + x.xpChange,
+        0
+      );
       setXp(totalXp);
       setLevel(Math.floor(totalXp / 100) + 1);
     } catch (err) {
@@ -49,25 +51,29 @@ export default function DashboardScreen() {
     }
   }, []);
 
-   useFocusEffect(
+  useFocusEffect(
     useCallback(() => {
       loadHabits();
     }, [loadHabits])
   );
 
   const handleComplete = async (id: string, title: string) => {
-    try {
-      const result = await completeHabit(id);
-      if (result.success) {
-        Alert.alert("🎉 Tebrikler!", `${title} tamamlandı! +${result.xpEarned} XP`);
-        loadHabits();
+  try {
+    const result = await completeHabit(id);
+    if (result.success) {
+      if (result.xpEarned > 0) {
+        Alert.alert("🎉 Tebrikler!", `${result.message}`);
       } else {
-        Alert.alert("Bilgi", result.message);
+        Alert.alert("✅ Güncellendi", result.message);
       }
-    } catch {
-      Alert.alert("Hata", "Bağlantı hatası, tekrar deneyin.");
+      loadHabits();
+    } else {
+      Alert.alert("Bilgi", result.message);
     }
-  };
+  } catch {
+    Alert.alert("Hata", "Bağlantı hatası, tekrar deneyin.");
+  }
+};
 
   useEffect(() => {
     loadHabits();
@@ -78,11 +84,12 @@ export default function DashboardScreen() {
     await loadHabits();
     setRefreshing(false);
   };
-  
 
   if (loading) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.center, { backgroundColor: theme.colors.background }]}
+      >
         <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
@@ -91,7 +98,9 @@ export default function DashboardScreen() {
   // 👇 Eğer hiç alışkanlık yoksa boş ekran göster
   if (habits.length === 0) {
     return (
-      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
+      <View
+        style={[styles.center, { backgroundColor: theme.colors.background }]}
+      >
         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
           Henüz hiç alışkanlığın yok 😅
         </Text>
@@ -107,45 +116,106 @@ export default function DashboardScreen() {
 
   // 👇 Alışkanlıklar varsa listeyi göster
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Text style={[styles.title, { color: theme.colors.text }]}>🏆 Level {level}</Text>
+    <View
+      style={[styles.container, { backgroundColor: theme.colors.background }]}
+    >
+      <Text style={[styles.title, { color: theme.colors.text }]}>
+        🏆 Level {level}
+      </Text>
       <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
         XP: {xp}
       </Text>
 
-      {/* İstersen XP bar */}
       <XPBar xp={xp} level={level} />
 
       <FlatList
         data={habits}
         keyExtractor={(item) => item.id}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-        renderItem={({ item }) => (
-          <View
-            style={[
-              styles.card,
-              { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
-            ]}
-          >
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.habitTitle, { color: theme.colors.text }]}>
-                {item.title}
-              </Text>
-              <Text style={[styles.habitCategory, { color: theme.colors.textSecondary }]}>
-                {item.category} | {item.progress}/{item.goalPerPeriod}
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={[styles.button, { backgroundColor: theme.colors.primary }]}
-              onPress={() => handleComplete(item.id, item.title)}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+        renderItem={({ item }) => {
+          const remainingDays =
+            item.endDate &&
+            Math.max(
+              0,
+              Math.floor(
+                (new Date(item.endDate).getTime() - Date.now()) /
+                  (1000 * 60 * 60 * 24)
+              )
+            );
+
+          return (
+            <View
+              style={[
+                styles.card,
+                {
+                  backgroundColor: theme.colors.card,
+                  borderColor: theme.colors.border,
+                },
+              ]}
             >
-              <Text style={styles.buttonText}>Tamamla</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.habitTitle, { color: theme.colors.text }]}>
+                  {item.title}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.habitCategory,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  {item.category} | 🔥 {item.streak ?? 0} gün streak
+                  {remainingDays !== null &&
+                    remainingDays !== undefined &&
+                    ` | 🏁 ${remainingDays} gün kaldı`}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.habitCategory,
+                    { color: theme.colors.textSecondary },
+                  ]}
+                >
+                  🎯 En iyi serin: {item.bestStreak ?? 0}
+                </Text>
+
+                <Text
+                  style={[
+                    styles.habitCategory,
+                    {
+                      color: theme.colors.textSecondary,
+                      marginTop: 4,
+                      fontStyle: "italic",
+                    },
+                  ]}
+                >
+                  Bugün: {item.progressToday ?? 0}/{item.goalPerPeriod ?? 1}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.button,
+                  { backgroundColor: theme.colors.primary },
+                ]}
+                disabled={
+                  item.progressToday >= item.goalPerPeriod || !item.isActive
+                }
+                onPress={() => handleComplete(item.id, item.title)}
+              >
+                <Text style={styles.buttonText}>
+                  {item.progressToday >= item.goalPerPeriod
+                    ? "Tamamlandı ✅"
+                    : "Tamamla"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        }}
       />
 
-      {/* Ekranın altına + buton */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => router.push("/addHabit")}

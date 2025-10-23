@@ -12,6 +12,7 @@ export const addHabit = async (habit: {
   priority: number;
   goalPerPeriod: number;
   frequency: string;
+  durationDays: number;
 }) => {
   const res = await api.post("/habits", habit);
   return res.data;

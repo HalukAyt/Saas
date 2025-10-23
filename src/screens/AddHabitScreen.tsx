@@ -6,7 +6,9 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
+  View
 } from "react-native";
+import { Picker } from "@react-native-picker/picker";
 import { addHabit } from "../api/habit";
 import { useTheme } from "../utils/ThemeContext";
 import { router } from "expo-router";
@@ -17,9 +19,11 @@ export default function AddHabitScreen() {
   const [category, setCategory] = useState("general");
   const [priority, setPriority] = useState("1");
   const [goal, setGoal] = useState("1");
+  const [duration, setDuration] = useState("30"); // 🔹 30 gün varsayılan
 
   const handleAdd = async () => {
     if (!title) return Alert.alert("Uyarı", "Lütfen bir başlık girin");
+
     try {
       await addHabit({
         title,
@@ -27,10 +31,12 @@ export default function AddHabitScreen() {
         priority: parseInt(priority),
         goalPerPeriod: parseInt(goal),
         frequency: "daily",
+        durationDays: parseInt(duration), // ✅ yeni alan
       });
       Alert.alert("Başarılı 🎯", "Yeni alışkanlık eklendi!");
-      router.back();
-    } catch {
+      router.replace("/dashboard");
+    } catch (err) {
+      console.log(err);
       Alert.alert("Hata", "Alışkanlık eklenemedi.");
     }
   };
@@ -74,6 +80,22 @@ export default function AddHabitScreen() {
         onChangeText={setGoal}
       />
 
+      {/* 🔹 Yeni alan: Süre seçimi */}
+      <Text style={[styles.label, { color: theme.colors.text }]}>Hedef Süresi</Text>
+      <View style={[styles.pickerContainer, { borderColor: theme.colors.border }]}>
+        <Picker
+          selectedValue={duration}
+          onValueChange={(val:any) => setDuration(val)}
+          style={{ color: theme.colors.text }}
+        >
+          <Picker.Item label="1 Hafta" value="7" />
+          <Picker.Item label="1 Ay" value="30" />
+          <Picker.Item label="3 Ay" value="90" />
+          <Picker.Item label="6 Ay" value="180" />
+          <Picker.Item label="1 Yıl" value="365" />
+        </Picker>
+      </View>
+
       <TouchableOpacity
         style={[styles.button, { backgroundColor: theme.colors.primary }]}
         onPress={handleAdd}
@@ -92,6 +114,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     marginTop: 6,
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: 6,
+    overflow: "hidden",
   },
   button: {
     marginTop: 24,
