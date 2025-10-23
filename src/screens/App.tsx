@@ -1,13 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { NavigationContainer } from "@react-navigation/native";
+import * as Notifications from "expo-notifications";
 import React, { useEffect } from "react";
 import { ThemeProvider } from "../utils/ThemeContext";
-import { NavigationContainer } from "@react-navigation/native";
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import { Ionicons } from "@expo/vector-icons";
-import * as Notifications from "expo-notifications";
 
 import DashboardScreen from "../screens/DashboardScreen";
-import FriendsScreen from "../screens/FriendsScreen";
 import FeedScreen from "../screens/FeedScreen";
+import FriendsScreen from "../screens/FriendsScreen";
 import StoreScreen from "../screens/StoreScreen";
 import SettingsScreen from "./SettingsScreen";
 
@@ -34,6 +34,15 @@ export default function App() {
       }
     })();
   }, []);
+  useEffect(() => {
+  (async () => {
+    const { status } = await Notifications.getPermissionsAsync();
+    if (status !== "granted") {
+      await Notifications.requestPermissionsAsync();
+    }
+  })();
+}, []);
+
 
   return (
     <ThemeProvider>

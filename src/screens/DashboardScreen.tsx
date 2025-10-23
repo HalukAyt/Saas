@@ -38,10 +38,7 @@ export default function DashboardScreen() {
       console.log("Habits response:", data);
       setHabits(data);
       const xpLogs = await getXPLogs();
-      const totalXp = xpLogs.reduce(
-        (acc: number, x: XPLog) => acc + x.xpChange,
-        0
-      );
+      const totalXp = xpLogs.reduce((acc: number, x: XPLog) => acc + x.xpChange, 0);
       setXp(totalXp);
       setLevel(Math.floor(totalXp / 100) + 1);
     } catch (err) {
@@ -58,26 +55,22 @@ export default function DashboardScreen() {
   );
 
   const handleComplete = async (id: string, title: string) => {
-  try {
-    const result = await completeHabit(id);
-    if (result.success) {
-      if (result.xpEarned > 0) {
-        Alert.alert("🎉 Tebrikler!", `${result.message}`);
+    try {
+      const result = await completeHabit(id);
+      if (result.success) {
+        if (result.xpEarned > 0) {
+          Alert.alert("🎉 Tebrikler!", result.message);
+        } else {
+          Alert.alert("✅ Güncellendi", result.message);
+        }
+        loadHabits();
       } else {
-        Alert.alert("✅ Güncellendi", result.message);
+        Alert.alert("Bilgi", result.message);
       }
-      loadHabits();
-    } else {
-      Alert.alert("Bilgi", result.message);
+    } catch {
+      Alert.alert("Hata", "Bağlantı hatası, tekrar deneyin.");
     }
-  } catch {
-    Alert.alert("Hata", "Bağlantı hatası, tekrar deneyin.");
-  }
-};
-
-  useEffect(() => {
-    loadHabits();
-  }, []);
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -85,22 +78,22 @@ export default function DashboardScreen() {
     setRefreshing(false);
   };
 
+  useEffect(() => {
+    loadHabits();
+  }, []);
+
   if (loading) {
     return (
-      <View
-        style={[styles.center, { backgroundColor: theme.colors.background }]}
-      >
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <ActivityIndicator color={theme.colors.primary} size="large" />
       </View>
     );
   }
 
-  // 👇 Eğer hiç alışkanlık yoksa boş ekran göster
+  // 👇 Eğer hiç alışkanlık yoksa boş ekran
   if (habits.length === 0) {
     return (
-      <View
-        style={[styles.center, { backgroundColor: theme.colors.background }]}
-      >
+      <View style={[styles.center, { backgroundColor: theme.colors.background }]}>
         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
           Henüz hiç alışkanlığın yok 😅
         </Text>
@@ -116,99 +109,86 @@ export default function DashboardScreen() {
 
   // 👇 Alışkanlıklar varsa listeyi göster
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.colors.background }]}
-    >
-      <Text style={[styles.title, { color: theme.colors.text }]}>
-        🏆 Level {level}
-      </Text>
-      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-        XP: {xp}
-      </Text>
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Text style={[styles.title, { color: theme.colors.text }]}>🏆 Level {level}</Text>
+      <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>XP: {xp}</Text>
 
+      {/* XP Bar */}
       <XPBar xp={xp} level={level} />
 
       <FlatList
         data={habits}
         keyExtractor={(item) => item.id}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item }) => {
-          const remainingDays =
-            item.endDate &&
-            Math.max(
-              0,
-              Math.floor(
-                (new Date(item.endDate).getTime() - Date.now()) /
-                  (1000 * 60 * 60 * 24)
-              )
-            );
+          const remainingDays = item.endDate
+            ? Math.max(0, Math.floor((new Date(item.endDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+            : null;
+
+          const progressPercent = Math.min(100, (item.progress / item.goalPerPeriod) * 100);
+          const isGoalCompleted = item.progress >= item.goalPerPeriod;
 
           return (
             <View
               style={[
                 styles.card,
-                {
-                  backgroundColor: theme.colors.card,
-                  borderColor: theme.colors.border,
-                },
+                { backgroundColor: theme.colors.card, borderColor: theme.colors.border },
               ]}
             >
               <View style={{ flex: 1 }}>
                 <Text style={[styles.habitTitle, { color: theme.colors.text }]}>
                   {item.title}
                 </Text>
-
-                <Text
-                  style={[
-                    styles.habitCategory,
-                    { color: theme.colors.textSecondary },
-                  ]}
-                >
-                  {item.category} | 🔥 {item.streak ?? 0} gün streak
-                  {remainingDays !== null &&
-                    remainingDays !== undefined &&
-                    ` | 🏁 ${remainingDays} gün kaldı`}
+                <Text style={[styles.habitCategory, { color: theme.colors.textSecondary }]}>
+                  {item.category} | 🔥 {item.streak} gün streak
+                </Text>
+                <Text style={[styles.habitCategory, { color: theme.colors.textSecondary }]}>
+                  🎯 En iyi seri: {item.bestStreak}
+                  {remainingDays !== null ? ` | 🏁 ${remainingDays} gün kaldı` : ""}
                 </Text>
 
-                <Text
+                {/* İlerleme çubuğu */}
+                <View
                   style={[
-                    styles.habitCategory,
-                    { color: theme.colors.textSecondary },
+                    styles.progressBar,
+                    { backgroundColor: theme.colors.border, marginTop: 6 },
                   ]}
                 >
-                  🎯 En iyi serin: {item.bestStreak ?? 0}
-                </Text>
-
+                  <View
+                    style={{
+                      width: `${progressPercent}%`,
+                      height: 6,
+                      borderRadius: 4,
+                      backgroundColor: isGoalCompleted
+                        ? theme.colors.success || "#4CAF50"
+                        : theme.colors.primary,
+                    }}
+                  />
+                </View>
                 <Text
                   style={[
-                    styles.habitCategory,
-                    {
-                      color: theme.colors.textSecondary,
-                      marginTop: 4,
-                      fontStyle: "italic",
-                    },
+                    styles.progressText,
+                    { color: theme.colors.textSecondary, marginTop: 4 },
                   ]}
                 >
-                  Bugün: {item.progressToday ?? 0}/{item.goalPerPeriod ?? 1}
+                  {item.progress}/{item.goalPerPeriod} tamamlandı
                 </Text>
               </View>
 
               <TouchableOpacity
                 style={[
                   styles.button,
-                  { backgroundColor: theme.colors.primary },
+                  {
+                    backgroundColor: isGoalCompleted
+                      ? theme.colors.disabled || "#777"
+                      : theme.colors.primary,
+                  },
                 ]}
-                disabled={
-                  item.progressToday >= item.goalPerPeriod || !item.isActive
-                }
+                disabled={isGoalCompleted}
                 onPress={() => handleComplete(item.id, item.title)}
               >
                 <Text style={styles.buttonText}>
-                  {item.progressToday >= item.goalPerPeriod
-                    ? "Tamamlandı ✅"
-                    : "Tamamla"}
+                  {isGoalCompleted ? "Tamamlandı" : "Tamamla"}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -216,6 +196,7 @@ export default function DashboardScreen() {
         }}
       />
 
+      {/* + FAB */}
       <TouchableOpacity
         style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => router.push("/addHabit")}
@@ -247,6 +228,8 @@ const styles = StyleSheet.create({
     marginLeft: 10,
   },
   buttonText: { color: "#fff", fontWeight: "600" },
+  progressBar: { width: "100%", height: 6, borderRadius: 4 },
+  progressText: { fontSize: 12 },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyText: { fontSize: 16, marginBottom: 12 },
   addButton: { padding: 12, borderRadius: 10 },
