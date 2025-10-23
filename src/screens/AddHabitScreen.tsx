@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Text,
   TextInput,
@@ -6,12 +6,24 @@ import {
   StyleSheet,
   Alert,
   ScrollView,
-  View
+  View,
 } from "react-native";
 import { Picker } from "@react-native-picker/picker";
+import * as Notifications from "expo-notifications";
 import { addHabit } from "../api/habit";
 import { useTheme } from "../utils/ThemeContext";
 import { router } from "expo-router";
+
+// 🔹 Bildirim izinlerini ayarlayalım (bir kereye mahsus)
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function AddHabitScreen() {
   const { theme } = useTheme();
@@ -19,25 +31,52 @@ export default function AddHabitScreen() {
   const [category, setCategory] = useState("general");
   const [priority, setPriority] = useState("1");
   const [goal, setGoal] = useState("1");
-  const [duration, setDuration] = useState("30"); // 🔹 30 gün varsayılan
+  const [duration, setDuration] = useState("30");
+  const [frequency, setFrequency] = useState("daily");
 
+  // 🔹 Bildirim izni iste (ilk açılışta)
+  useEffect(() => {
+    (async () => {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Bildirim izni reddedildi", "Hatırlatmalar devre dışı kalabilir.");
+      }
+    })();
+  }, []);
+
+  // 🔹 Yeni alışkanlık ekleme
   const handleAdd = async () => {
-    if (!title) return Alert.alert("Uyarı", "Lütfen bir başlık girin");
+    if (!title.trim()) return Alert.alert("Uyarı", "Lütfen bir başlık girin");
 
     try {
+      // ✅ Backend'e kaydet
       await addHabit({
         title,
         category,
         priority: parseInt(priority),
         goalPerPeriod: parseInt(goal),
-        frequency: "daily",
-        durationDays: parseInt(duration), // ✅ yeni alan
+        frequency,
+        durationDays: parseInt(duration),
       });
+
+      // ✅ Bildirimi planla (her sabah 09:00)
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: "🧠 Hatırlatma",
+          body: `${title} zamanı geldi!`,
+        },
+        trigger: {
+          hour: 9,
+          minute: 0,
+          repeats: true,
+        } as Notifications.CalendarTriggerInput,
+      });
+
       Alert.alert("Başarılı 🎯", "Yeni alışkanlık eklendi!");
       router.replace("/dashboard");
     } catch (err) {
-      console.log(err);
-      Alert.alert("Hata", "Alışkanlık eklenemedi.");
+      console.error("Habit Add Error:", err);
+      Alert.alert("Hata", "Alışkanlık eklenemedi. Bağlantı veya sunucu hatası.");
     }
   };
 
@@ -72,7 +111,7 @@ export default function AddHabitScreen() {
         onChangeText={setPriority}
       />
 
-      <Text style={[styles.label, { color: theme.colors.text }]}>Günlük Hedef</Text>
+      <Text style={[styles.label, { color: theme.colors.text }]}>Hedef (günlük miktar)</Text>
       <TextInput
         style={[styles.input, { color: theme.colors.text, borderColor: theme.colors.border }]}
         value={goal}
@@ -80,12 +119,12 @@ export default function AddHabitScreen() {
         onChangeText={setGoal}
       />
 
-      {/* 🔹 Yeni alan: Süre seçimi */}
+      {/* 🔹 Süre seçimi */}
       <Text style={[styles.label, { color: theme.colors.text }]}>Hedef Süresi</Text>
       <View style={[styles.pickerContainer, { borderColor: theme.colors.border }]}>
         <Picker
           selectedValue={duration}
-          onValueChange={(val:any) => setDuration(val)}
+          onValueChange={(val) => setDuration(val.toString())}
           style={{ color: theme.colors.text }}
         >
           <Picker.Item label="1 Hafta" value="7" />
@@ -94,6 +133,29 @@ export default function AddHabitScreen() {
           <Picker.Item label="6 Ay" value="180" />
           <Picker.Item label="1 Yıl" value="365" />
         </Picker>
+      </View>
+
+      {/* 🔹 Sıklık */}
+      <Text style={[styles.label, { color: theme.colors.text }]}>Sıklık</Text>
+      <View style={{ flexDirection: "row", marginVertical: 8 }}>
+        {["daily", "weekly", "monthly"].map((freq) => (
+          <TouchableOpacity
+            key={freq}
+            style={[
+              styles.freqButton,
+              { backgroundColor: frequency === freq ? theme.colors.primary : theme.colors.card },
+            ]}
+            onPress={() => setFrequency(freq)}
+          >
+            <Text
+              style={{
+                color: frequency === freq ? "#fff" : theme.colors.textSecondary,
+              }}
+            >
+              {freq === "daily" ? "Günlük" : freq === "weekly" ? "Haftalık" : "Aylık"}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       <TouchableOpacity
@@ -120,6 +182,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginTop: 6,
     overflow: "hidden",
+  },
+  freqButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginRight: 10,
   },
   button: {
     marginTop: 24,
